@@ -3,8 +3,7 @@ package edu.gemini.tac.qengine.api.queue.time
 import org.scalacheck._
 import org.scalacheck.Gen._
 import org.scalacheck.Arbitrary._
-
-import edu.gemini.tac.qengine.ctx.{Partner, TestPartners}
+import edu.gemini.tac.qengine.ctx.{Partner, Site, TestPartners}
 import edu.gemini.tac.qengine.p1.QueueBand
 import edu.gemini.tac.qengine.util.{Percent, Time}
 
@@ -34,6 +33,7 @@ trait Arbitraries {
       for {
         m <- arbitrary[Map[(Partner, QueueBand), Time]]
         p <- arbitrary[Option[Percent]]
-      } yield new ExplicitQueueTime(m, p)
+        s <- arbitrary[Site]
+      } yield new ExplicitQueueTime(s, m, p)
     }
 }

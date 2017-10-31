@@ -137,6 +137,9 @@ object QueueTime {
 
   def apply(s: Site, pt: PartnerTime, bp: QueueBandPercentages, poa: Option[Percent]): QueueTime =
     new DerivedQueueTime(s, pt, bp, poa)
+
+  def explicitQueueTime(s: Site, ct: Map[(Partner, QueueBand), Time], poa: Option[Percent]): QueueTime =
+    new ExplicitQueueTime(s, ct, poa)
 }
 
 import QueueTime.Log
@@ -190,7 +193,7 @@ final class DerivedQueueTime(val site: Site,
 /** Implementation of `QueueTime` derived from overall partner allocation and
   * band percentages.
   */
-final class ExplicitQueueTime(categorizedTimes: Map[(Partner, QueueBand), Time], val partnerOverfillAllowance: Option[Percent]) extends QueueTime {
+final class ExplicitQueueTime(site: Site, categorizedTimes: Map[(Partner, QueueBand), Time], val partnerOverfillAllowance: Option[Percent]) extends QueueTime {
 
   val allPartners: List[Partner] =
     categorizedTimes.keys.map(_._1).toList.distinct

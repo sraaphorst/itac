@@ -173,15 +173,49 @@ class QueueTimeExtractor(queue: PsQueue, partners: List[Partner], rop: RolloverR
     } yield new PartnerTimeCalc(partners, b, classical = c, rollover = rol, exchange = exc, adjustment = adj, partnerTrade = trade)
 
   /**
+    * Extracts categorized PartnerTimes from the configuration.
+    */
+  val partnerTimeCalcExplicit: PsError \/ PartnerTimeCalc =
+    for {
+      b     <- basePartnerTime
+      c     <- classical
+      rol   <- rollover
+      exc   <- exchangeTime
+      adj   <- adjustments
+      trade <- partnerTrade
+    } yield new PartnerTimeCalc(partners, b, classical = c, rollover = rol, exchange = exc, adjustment = adj, partnerTrade = trade)
+
+  /**
    * Computes QueueTime from the definition in Queue, if possible.  Adjusts for
    * rollover time.
    */
-  def extract: PsError \/ QueueTime =
+  def extractLegacy: PsError \/ QueueTime =
     for {
       ctx <- parsedCtx
       ptc <- partnerTimeCalc
       p   <- bandPercentages
       of  <- overfillFactor
     } yield QueueTime(ctx.getSite, ptc.net, p, Some(of))
+
+  /**
+    * Computes QueueTime from the definition in Queue, if possible.  Adjusts for
+    * rollover time.
+    */
+  def extract: PsError \/ QueueTime =
+    for {
+      ctx <- parsedCtx
+      ptc <- partnerTimeCalc
+      b   <- bandPercentages
+      of  <- overfillFactor
+    } yield {
+      val m = ptc.net.map.flatMap {
+        case (p, t) =>
+          b.bandPercent.map {
+            case (d, pc) =>
+              (p, d) -> pc * t
+          }
+      }
+      QueueTime.explicitQueueTime(ctx.getSite, m, Some(of))
+    }
 }
 
