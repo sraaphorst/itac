@@ -4,18 +4,16 @@ import edu.gemini.tac.persistence.{Partner => PsPartner}
 import edu.gemini.tac.persistence.queues.{Queue => PsQueue}
 import edu.gemini.tac.persistence.queues.partnerCharges.{PartnerCharge => PsPartnerCharge}
 import edu.gemini.tac.psconversion._
-
 import edu.gemini.tac.qengine.api.config.QueueBandPercentages
 import edu.gemini.tac.qengine.api.queue.time.{PartnerTime, PartnerTimeCalc, QueueTime}
 import edu.gemini.tac.qengine.p1.Proposal
 import edu.gemini.tac.qengine.p2.rollover.RolloverReport
-import edu.gemini.tac.qengine.util.{Time, Percent}
+import edu.gemini.tac.qengine.util.{Percent, Time}
 
 import scala.annotation.tailrec
-
 import scalaz._
 import Scalaz._
-import edu.gemini.tac.qengine.ctx.Partner
+import edu.gemini.tac.qengine.ctx.{Context, Partner, Site}
 
 object QueueTimeExtractor {
   def BAD_BAND1_CUTOFF     = "Missing or unparseable Band 1 cutoff"
@@ -64,7 +62,7 @@ class QueueTimeExtractor(queue: PsQueue, partners: List[Partner], rop: RolloverR
     if ((b1 < 0) || (b2 < b1) || (b3 < b2) || (b3 > 100)) BadData(BAD_BAND_PERCENTAGES(b1, b2, b3)).left
     else QueueBandPercentages(b1, b2-b1, b3-b2).right
 
-  private val parsedCtx = ContextConverter.read(queue)
+  private val parsedCtx: PsError \/ Context = ContextConverter.read(queue)
 
   /**
    * Gets the queue band percentages to use, if possible.
@@ -96,12 +94,12 @@ class QueueTimeExtractor(queue: PsQueue, partners: List[Partner], rop: RolloverR
   // to their suggested default of 300 hours.
 
   /**
-   * Gets the nominal partner time based solely on partner percentages and the
-   * specified total queue time with no adjustments made.
-   *
-   * @return ConfigError if the total queue time is null or negative, a
-   * PartnerTime otherwise
-   */
+    * Gets the nominal partner time based solely on partner percentages and the
+    * specified total queue time with no adjustments made.
+    *
+    * @return ConfigError if the total queue time is null or negative, a
+    * PartnerTime otherwise
+    */
   val basePartnerTime: PsError \/ PartnerTime = {
     def available: PsError \/ Time =
       safePersistenceInt(BAD_PARTNER_TIME) { queue.getTotalTimeAvailable }.flatMap { hrs =>
@@ -114,6 +112,37 @@ class QueueTimeExtractor(queue: PsQueue, partners: List[Partner], rop: RolloverR
       pt  <- available.map { hrs => PartnerTimeCalc.base(ctx.getSite, hrs, partners)}
     } yield pt
   }
+
+  /**
+   * Gets the nominal partner time based solely on partner percentages and the
+   * specified total queue time with no adjustments made.
+   *
+   * @return ConfigError if the total queue time is null or negative, a
+   * PartnerTime otherwise
+   */
+  val explicitPartnerTime: PsError \/ PartnerTime = {
+    // Hardcoded times
+    def times(s: Site): PartialFunction[Partner, Time] = {
+      case Partner("US", _, _, _) if s === Site.north => Time.hours(711)
+      case Partner("CA", _, _, _) if s === Site.north => Time.hours(200)
+      case Partner("BR", _, _, _) if s === Site.north => Time.hours(86)
+      case Partner("AR", _, _, _) if s === Site.north => Time.hours(33)
+      case Partner("UH", _, _, _) if s === Site.north => Time.hours(157)
+      case Partner("US", _, _, _) if s === Site.south => Time.hours(598)
+      case Partner("CA", _, _, _) if s === Site.south => Time.hours(169)
+      case Partner("BR", _, _, _) if s === Site.south => Time.hours(75)
+      case Partner("AR", _, _, _) if s === Site.south => Time.hours(28)
+      case Partner("CL", _, _, _) if s === Site.south => Time.hours(135)
+    }
+
+    partners.foreach(println)
+
+    for {
+      ctx <- parsedCtx
+      //      pt  <- /available.map { hrs => PartnerTimeCalc.base(ctx.getSite, hrs, partners)}
+    } yield PartnerTime(partners, times(ctx.getSite))
+  }
+
 
   /**
    * Computes the time allocated to classical programs for the site per partner.
@@ -164,7 +193,7 @@ class QueueTimeExtractor(queue: PsQueue, partners: List[Partner], rop: RolloverR
    */
   val partnerTimeCalc: PsError \/ PartnerTimeCalc =
     for {
-      b     <- basePartnerTime
+      b     <- explicitPartnerTime
       c     <- classical
       rol   <- rollover
       exc   <- exchangeTime

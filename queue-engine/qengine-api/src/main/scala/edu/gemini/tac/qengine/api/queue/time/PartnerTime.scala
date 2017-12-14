@@ -61,7 +61,7 @@ object PartnerTime {
    * Partner to the associated Time value.  Any Partners for which pf is not
    * defined are set to zero hours.
    */
-  def apply(partners: List[Partner],  pf: PartialFunction[Partner, Time]): PartnerTime =
+  def apply(partners: List[Partner], pf: PartialFunction[Partner, Time]): PartnerTime =
     new PartnerTime(partners, Partner.mkMap(partners, pf, Time.ZeroHours))
 
   /**

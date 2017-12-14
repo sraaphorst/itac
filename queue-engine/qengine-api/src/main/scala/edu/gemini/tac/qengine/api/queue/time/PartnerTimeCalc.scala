@@ -69,8 +69,8 @@ object PartnerTimeCalc {
    * <code>base - (classical + large program + rollover + exchange)</code>
    * where negative times are left at zero.
    */
-  def net(base: PartnerTime, partners: List[Partner],  deductions: PartnerTime*): PartnerTime = {
-    val totalDeductions = (PartnerTime.empty(partners) /:deductions)(_ + _)
+  def net(base: PartnerTime, partners: List[Partner], deductions: PartnerTime*): PartnerTime = {
+    val totalDeductions = (PartnerTime.empty(partners) /: deductions)(_ + _)
     val tmp = base - totalDeductions
     tmp.mapTimes((_: Partner, t: Time) => Time.max(Time.ZeroHours, t))
   }
